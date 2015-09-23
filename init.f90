@@ -83,8 +83,8 @@ module initxvector
         real(dp) :: xguess(neq)  ! guess fraction  solvent 
       
         !     ..local variables 
-        integer :: n, i
-        character(len=10) :: fname
+        integer :: i             ! dummy varaible 
+        character(len=10) :: fname 
         integer :: ios,un_file
       
         !     .. init guess all xbulk      

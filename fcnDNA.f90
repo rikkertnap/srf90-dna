@@ -99,17 +99,19 @@ module listfcn
 
         enddo
 
+        ! fdis(i,t) is assocaited with fraction of monomer of type t at i in state 2 
+
         do t=1,nsegtypes
             if(ismonomer_chargeable(t)) then
                 do i=1,n
                     rhopol(i,t) = 0.0d0                                                ! init polymer density          
                     fdis(i,t)  = 1.0d0/(1.0d0+xHplus(i)/(K0a(t)*xsol(i)))      
-                    exppi(i,t)  = (xsol(i)**vpol(t))*exp(zpol(t,1)*psi(i) )/fdis(i,t)   ! auxilary variable palpha
+                    exppi(i,t)  = (xsol(i)**vpol(t))*exp(-zpol(t,2)*psi(i) )/fdis(i,t)   ! auxilary variable palpha
                 enddo  
             else
                 do i=1,n
                     rhopol(i,t) = 0.0d0
-                    fdis(i,t)  = 1.0d0
+                    fdis(i,t)  = 0.0d0
                     exppi(i,t)  = xsol(i)**vpol(t)
                 enddo  
             endif   
@@ -137,7 +139,7 @@ module listfcn
 
         !   .. construction of fcn and volume fraction polymer        
 
-        rhopol0=sigma/q
+        rhopol0=sigma/q ! observe delta
 
         do i=1,n
             xpol(i) =0.0d0
@@ -145,7 +147,7 @@ module listfcn
             do t=1,nsegtypes
                 rhopol(i,t)= rhopol0*rhopol(i,t)/deltaG(i) ! density of polymer type t
                 xpol(i)=xpol(i)+rhopol(i,t)*vpol(t)*vsol 
-                rhoq(i)=(zpol(t,1)*fdis(i,t)+zpol(t,2)*(1.0d0-fdis(i,t)))*rhopol(i,t)*vsol ! charge from polymer 
+                rhoq(i)=(zpol(t,2)*fdis(i,t)+zpol(t,1)*(1.0d0-fdis(i,t)))*rhopol(i,t)*vsol ! charge from polymer 
             enddo
 
             f(i)=xpol(i)+xsol(i)+xNa(i)+xCl(i)+xNaCl(i)+xK(i)+xKCl(i)+xCa(i)+xHplus(i)+xOHmin(i)-1.0d0
@@ -160,6 +162,7 @@ module listfcn
         ! .. electrostatics 
 
         sigmaqSurf=0.0d0 ! surface charge 
+        sigmaqSurf=sigmaSurf ! surface charge 
         psi(n+1)=0.0d0   ! bulk potential
 
         !    .. Poisson Eq 
@@ -171,7 +174,7 @@ module listfcn
         enddo
 
 
-        norm=l2norm(f,2*n)
+        norm=l2norm(f,int(nn))
         iter=iter+1
 
         print*,'iter=', iter ,'norm=',norm

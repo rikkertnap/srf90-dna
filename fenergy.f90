@@ -91,7 +91,7 @@ module energy
         qres = 0.0d0
 
         do i=1,nr
-            FEpi = FEpi  + deltaG(i)*dlog(xpi(i))
+            FEpi = FEpi  + deltaG(i)*dlog(xsol(i))
             FErho = FErho - deltaG(i)*(xsol(i) + xHplus(i) + xOHmin(i)+ xNa(i)/vNa + xCa(i)/vCa + xCl(i)/vCl+xK(i)/vK +&
                 xNaCl(i)/vNaCl +xKCl(i)/vKCl)                 ! sum over  rho_i 
             FEel = FEel  - deltaG(i) * rhoq(i) * psi(i)/2.0d0        
@@ -178,14 +178,10 @@ module energy
         do t=1,nsegtypes
             if(ismonomer_chargeable(t)) then
                 do i=1,nr
-                    rhopol(i,t) = 0.0d0                                                ! init polymer density          
-                    fdis(i,t)  = 1.0d0/(1.0d0+xHplus(i)/(K0a(t)*xsol(i)))      
-                    exppi(i,t)  = (xsol(i)**vpol(t))*exp(zpol(t,1)*psi(i) )/fdis(i,t)   ! auxilary variable palpha
+                    exppi(i,t)  = (xsol(i)**vpol(t))*exp(-zpol(t,2)*psi(i) )/fdis(i,t)   ! auxilary variable palpha
                 enddo  
             else
                 do i=1,nr
-                    rhopol(i,t) = 0.0d0
-                    fdis(i,t)  = 1.0d0
                     exppi(i,t)  = xsol(i)**vpol(t)
                 enddo  
             endif   
@@ -373,16 +369,9 @@ module energy
         implicit none
 
         !  .. local arguments 
-    
-        real(dp) :: sigmaq0,psi0
-        real(dp) :: qsurf(2)           ! total charge on surface 
-        real(dp) :: qsurfg             ! total charge on grafting surface  
-        integer :: i,j               ! dummy variables 
+          
         real(dp) :: volumelat          ! volume lattice 
-        integer :: nzadius
         
-
-
         !  .. computation of free energy 
     
         !  .. alternative computation free energy

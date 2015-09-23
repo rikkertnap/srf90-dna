@@ -7,7 +7,7 @@ module field
       
     real(dp), dimension(:), allocatable :: xpol  ! total volume fraction of polymer on sphere
     real(dp), dimension(:,:), allocatable :: rhopol! density  monomer of polymer on sphere
-    real(dp), dimension(:), allocatable :: xpi     ! volume fraction solvent with no chi-parameters = exp(-beta pi vsol) 
+!    real(dp), dimension(:), allocatable :: xpi     ! volume fraction solvent with no chi-parameters = exp(-beta pi vsol) 
     real(dp), dimension(:), allocatable :: xsol    ! volume fraction solvent
     real(dp), dimension(:), allocatable :: psi     ! electrostatic potential 
     real(dp), dimension(:), allocatable :: xNa     ! volume fraction of positive Na+ ion
@@ -33,7 +33,7 @@ module field
         
         allocate(xpol(N))
         allocate(rhopol(N,nsegtypes))
-        allocate(xpi(N))
+!        allocate(xpi(N))
         allocate(xsol(N))
         allocate(psi(N+1))
         allocate(xNa(N))
@@ -141,30 +141,30 @@ module field
         use globals
         use volume
         use parameters
-        use chains
+        use chains, only : type_of_monomer
 
         implicit none 
 
         integer :: i,s,t
-        real(dp)  :: Asurf
-        real(dp)  :: npol_t  ! .. number of monomers of type t
+        real(dp)  :: npol(nsegtypes)
+        integer :: valtype
 
-        Asurf=4.0d0*pi*(radius**2)
+        ! .. counts number monomors of type t 
+        do t=1,nsegtypes 
+            npol(t)=0     
+            do s=1,nseg
+                valtype=type_of_monomer(t)
+                npol(valtype)=npol(valtype)+1
+            enddo
+        enddo
 
         do t=1,nsegtypes
-            ! .. number monomors of type t  
-            npol_t=0
-            do s=1,nseg
-                if(ismonomer_of_type(s,t).eqv..true.) then
-                    npol_t=npol_t+1
-                endif
-            enddo
-            if(npol_t.ne.0) then
+            if(npol(t)/=0) then
                 avfdis(t)=0.0d0
                 do i=1,nr
-                        avfdis(t)=avfdis(t)+fdis(i,t)*rhopol(i,t)*deltaG(i) 
+                    avfdis(t)=avfdis(t)+fdis(i,t)*rhopol(i,t)*deltaG(i) 
                 enddo
-                avfdis(t)=avfdis(t)*delta/(sigma*delta*npol_t)
+                avfdis(t)=avfdis(t)*delta/(sigma*delta*npol(t))
             else
                 avfdis(t)=0.0d0
             endif

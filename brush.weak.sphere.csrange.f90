@@ -1,7 +1,20 @@
 ! --------------------------------------------------------------|
-! Solves the SCMFT eqs for WEAK polyelectrolytes polymers       |
+! Solves the SCMFT eqs for WEAK DNA polyelectrolytes polymers   |
 ! coated onto a spherical surface,                              | 
-! input: see myio.f90                                           | 
+! input: see myio.f90                                           |
+! input files: input.in                                         |
+! plus  files containing                                        | 
+!  1. a list specifing the types each segment                   |
+!     each type is represented by a integer number              |      
+!  2. the volume of each segement type                          |
+!  3. the pKa and the charge of both chargeable states          |
+!  4. DNA conformations (optional select with chainmethod)      |
+!  5. list of salt concentration  (salt.in)                     |
+!  6. list of surface coverages (sigma.in)                      |
+!  runflag = {default,input,range}                              |
+!  default= pre set value for sigma and salt                    |
+!  input  = values of sigma and salt  from input files          |
+!   range  = values of sigma in a range and salt from file      | 
 ! --------------------------------------------------------------|
       
 program brushweakpolyelectrolyte 
@@ -13,7 +26,6 @@ program brushweakpolyelectrolyte
     use random
     use field
     use parameters
-    use matrices
     use energy
     use chains
     use listfcn 
@@ -28,7 +40,7 @@ program brushweakpolyelectrolyte
     real(dp),  dimension(:), allocatable :: xstored   ! stored iteration vector
     real(dp),  dimension(:), allocatable :: fvec     
   
-    integer :: i,c,sg,s         ! dummy indices      
+    integer :: i,c,sg         ! dummy indices      
     logical :: use_xstored      
   
     !     .. executable statements 
@@ -36,10 +48,13 @@ program brushweakpolyelectrolyte
   
     call read_inputfile()
     call init_constants()
-    call init_matrices()        ! init matrices for chain generation
-    call allocate_chains(cuantas,nseg)
-    call make_chains(chainmethod) ! generate polymer configurations 
-!    call make_sequence_chain(period,chaintype)
+    
+    call allocate_chains(cuantas,nseg,nsegtypes) 
+    call init_chain_parameters()
+    call make_chains(chainmethod)
+    
+    call print_input_value()
+
     call allocate_geometry(nsize)
     call make_geometry()        ! generate volume elements lattice 
     call allocate_field(nsize,nsegtypes) 
@@ -84,7 +99,7 @@ program brushweakpolyelectrolyte
                     call fcnenergy()        ! free energy
                     call average_height()      
                     call average_charge_polymer()
-                    call average_fdis_polymer()
+                !    call average_fdis_polymer()
                     call output()           ! writing of output
                     sigma=sigma+sigmastepsize
 
@@ -107,7 +122,6 @@ program brushweakpolyelectrolyte
 
         enddo
     else
-
         use_xstored=.false.
         do c=1,num_cNaCl                ! loop over salt concentration 
             cNaCl=cNaCl_array(c)
@@ -123,7 +137,7 @@ program brushweakpolyelectrolyte
            
                 call fcnenergy()        ! free energy
                 call average_height()      
-                call average_charge_polymer()
+                ! call average_charge_polymer()
                 call output()           ! writing of output
               
                 iter  = 0                ! reset of iteration counter 
@@ -140,8 +154,8 @@ program brushweakpolyelectrolyte
                 endif     
             enddo
         enddo
+    endif 
 
-    endif    
     
     deallocate(x)
     deallocate(xguess)

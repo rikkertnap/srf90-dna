@@ -35,11 +35,11 @@ subroutine rotation(xend,xendr,nseg,is_larger_radius)
     fac=rands(seed)
     fac1=rands(seed)
     fac2=rands(seed)
-    alfa=fac*2*pi
-    cbe=fac1*2.0-1.0
-    gama=fac2*2*pi
+    alfa=fac*2.0d0*pi
+    cbe=fac1*2.0d0-1.0d0
+    gama=fac2*2.0d0*pi
     
-    sbe=(1-cbe**2)**0.5
+    sbe=(1.0d0-cbe**2)**0.5
     cal=cos(alfa)
     sal=sin(alfa)
     cga=cos(gama)
@@ -64,8 +64,11 @@ subroutine rotation(xend,xendr,nseg,is_larger_radius)
      
     is_larger_radius=.true.
     i=2 
+
     do while((i<=(nseg+1)).and.(is_larger_radius)) 
-        if((x(i)**2+y(i)**2 + z(i)**2)<radius2) is_larger_radius=.false.
+        if((x(i)**2+y(i)**2 + z(i)**2)<radius2) then 
+           is_larger_radius=.false.
+        endif
         i=i+1
     enddo
 

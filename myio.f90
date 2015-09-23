@@ -9,12 +9,8 @@ module myio
 
     character(len=10) :: LogName        ! filename of status log file
     integer, parameter :: LogUnit=321   ! associated unit number
-    integer :: csmax             ! number of salt concentration considered
-    integer :: chimax            ! number of chi values considered
-    
     real(dp), dimension(:), allocatable  :: cs          ! salt concentrations     
-    real(dp), dimension(:), allocatable  :: chiFH       ! chiFH values
-    
+   
     contains    
 
 
@@ -35,19 +31,22 @@ module myio
         write(fname,'(A8)')'input.in'
         open(unit=newunit(un_input),file=fname,iostat=ios,status='old')
         if(ios > 0 ) then
-            print*, 'Error opening file : iostat =', ios
+            print*, 'Error opening file input.in : iostat =', ios
             stop
         endif
       
         read(un_input,*)method
+        read(un_input,*)sysflag
+        call check_value_sysflag()
+        read(un_input,*)runflag
+        call check_value_runflag()
         read(un_input,*)chainmethod
-        if(chainmethod=="FILE") then
-            read(un_input,*)chainfname
-            read(un_input,*)vpolfname
-            read(un_input,*)pKafname
-        endif
-        read(un_input,*)sigma
-        read(un_input,*)sigmaSurf
+        if(chainmethod=="FILE") read(un_input,*)chainfname
+        read(un_input,*)vpolfname
+        read(un_input,*)pKafname
+        read(un_input,*)typesfname
+        if(chainmethod=="FILE") read(un_input,*)spacer
+        if(chainmethod=="MC") read(un_input,*)lseg
         read(un_input,*)error             
         read(un_input,*)infile          ! guess  1==yes
         read(un_input,*)radius
@@ -58,9 +57,8 @@ module myio
         read(un_input,*)cCaCl2
         read(un_input,*)nsize
         read(un_input,*)nseg
-        read(un_input,*)nsegtypes
+        read(un_input,*)nsegtypes ! carefully need to be overwriten when chainmethod==FILE
         read(un_input,*)cuantas
-        read(un_input,*)runflag
         if(runflag=="range") then
             read(un_input,*)sigmamin
             read(un_input,*)sigmamax
@@ -71,8 +69,8 @@ module myio
 
         close(un_input)
 
-        call check_value_sysflag() 
-        call check_value_runflag()
+        sigmaSurf=0.0d0   ! value not equal zero not yet properly workinf for free energy routine
+        
         call check_input_value()
         
     end subroutine read_inputfile
@@ -92,7 +90,7 @@ module myio
         ! permissible values of sysflag
 
         sysflagstr(1)="elect"
-        sysflagstr(2)="electHP"
+        sysflagstr(2)="electHP" ! not used yet 
         
         flag=.FALSE.
 
@@ -102,6 +100,7 @@ module myio
         if (flag.eqv. .FALSE.) then 
             print*,"Error: value of sysflag is not permissible"
             print*,"sysflag = ",sysflag
+            stop
         endif
         
     end subroutine
@@ -131,6 +130,7 @@ module myio
         if (flag.eqv. .FALSE.) then 
             print*,"Error: value of runflag is not permissible"
             print*,"runflag = ",runflag
+            stop
         endif
 
     end subroutine      
@@ -145,17 +145,23 @@ module myio
 
         implicit none
 
-!         if(sysflag=="neutralAB") chiCS=0.0d0
-!         if(sysflag=="neutral") then  ! no A monomer
-!             if(chaintype=="altA") then
-!                 print*,"Change chaintype: altA inconsistent with sysflag neutral"
-!                 stop 
-!             else if(nsegAB>=period) then
-!                 print*,"Change value nsegAB or period: value inconsistent with sysflag neutral"
-!             endif
-!         endif   
 
     end subroutine check_input_value
+
+    ! purpose print input values for debugging only
+
+    subroutine print_input_value()
+
+        use globals
+        use parameters
+
+        implicit none
+
+        print*,"nsegtypes=",nsegtypes    
+        print*,"delta=",delta
+        print*,"nseg=",nseg
+
+    end subroutine print_input_value
 
 
     subroutine set_value_salt(runflag)
@@ -190,12 +196,12 @@ module myio
             write(fname,'(A7)')'salt.in'
             open(unit=newunit(un_cs),file=fname,iostat=ios,status='old')
             if(ios > 0 ) then
-                print*, 'Error opening file : iostat =', ios
+                print*, 'Error opening file salt.in : iostat =', ios
                 stop
             endif
 
             read(un_cs,*)num_cNaCl ! read number of salt concentration form file
-            allocate(cs(num_cNaCl)) 
+            allocate(cNaCl_array(num_cNaCl)) 
             
             do i=1,num_cNaCl     ! read value salt concentration
                 read(un_cs,*)cNaCl_array(i)
@@ -239,9 +245,9 @@ module myio
             ! read values of sigma from file
 
             write(fname,'(A8)')'sigma.in'
-            open(unit=un_sg,file=fname,iostat=ios,status='old')
+            open(unit=newunit(un_sg),file=fname,iostat=ios,status='old')
             if(ios > 0 ) then
-                print*, 'Error opening file : iostat =', ios
+                print*, 'Error opening file sigma.in: iostat =', ios
                 stop
             endif
 
@@ -297,13 +303,23 @@ module myio
 
         !     .. local arguments
 
-        integer :: i,n,s           ! dummy indexes
+        integer :: i,n,t           ! dummy indexes
         character(len=100) :: fnamelabel
-        character(len=10) :: rstr,chistr
-        integer :: npolA,npolB
+        character(len=10) :: rstr
+        logical :: isneutral 
         
         !     .. executable statements 
-
+        ! fortran90 routines need either an interface or a module !!!
+        interface
+            logical function  is_polymer_neutral(ismonomer_chargeable, nsegtypes)
+    
+                implicit none
+ 
+                logical, intent(in) :: ismonomer_chargeable(:)
+                integer, intent(in) :: nsegtypes
+            end  function is_polymer_neutral
+                
+        end interface
         
         n=nr
 
@@ -312,10 +328,12 @@ module myio
         fmt4reals = "(4ES25.16E3)"  
         fmt5reals = "(5ES25.16E3)" 
         fmt6reals = "(6ES25.16E3)" 
-        
+
+        print*,"output-> sigma=",sigma
         !     .. make lable filenames 
         write(rstr,'(F5.3)')sigma*delta
-        fnamelabel="sg"//trim(adjustl(rstr))
+        fnamelabel="sg"//trim(adjustl(rstr)) 
+        write(rstr,'(F5.3)')pHbulk
         fnamelabel=trim(fnamelabel)//"pH"//trim(adjustl(rstr))
         write(rstr,'(F5.3)')cNaCl
         fnamelabel=trim(fnamelabel)//"cNaCl"//trim(adjustl(rstr))
@@ -373,6 +391,8 @@ module myio
             write(un_charge,*)rc(i),rhoq(i)
             write(un_xHplus,*)rc(i),xHplus(i)
             write(un_xOHmin,*)rc(i),xOHmin(i)
+            write(un_fdis,*)rc(i),(fdis(i,t),t=1,nsegtypes)
+
         enddo         
             
         if(cKCl/=0.0d0) then
@@ -401,6 +421,11 @@ module myio
             enddo
         endif   
 
+
+
+        isneutral=is_polymer_neutral(ismonomer_chargeable, nsegtypes)
+
+
         !     .. system information 
 
 
@@ -409,9 +434,13 @@ module myio
         write(un_sys,*)'free energy = ',FE
         write(un_sys,*)'energy bulk = ',FEbulk 
         write(un_sys,*)'deltafenergy = ',deltaFE
-        write(un_sys,*)'FEalt       = ',FEalt
-        write(un_sys,*)'FEbulkalt   = ',FEbulkalt
-        write(un_sys,*)'deltaFEalt  = ',deltaFEalt
+        if(isneutral) then 
+            write(un_sys,*)'FEalt       = ',FEalt
+            write(un_sys,*)'FEbulkalt   = ',FEbulkalt
+            write(un_sys,*)'deltaFEalt  = ',deltaFEalt
+        else
+            write(un_sys,*)'FEalt       = not yet correct'
+        endif     
         write(un_sys,*)'FEconf      = ',FEconf
         write(un_sys,*)'FEtrans%sol = ',FEtrans%sol  
         write(un_sys,*)'fnorm       = ',fnorm
@@ -439,7 +468,6 @@ module myio
         write(un_sys,*)'vK          = ',vK*vsol
         write(un_sys,*)'vNaCl       = ',vNaCl*vsol
         write(un_sys,*)'vKCl        = ',vKCl*vsol
-        
         write(un_sys,*)'cNaCl       = ',cNaCl
         write(un_sys,*)'cKCl        = ',cKCl
         write(un_sys,*)'cCaCl2      = ',cCaCl2
@@ -458,25 +486,24 @@ module myio
         write(un_sys,*)'xOHminbulk  = ',xbulk%OHmin
         write(un_sys,*)'sigma       = ',sigma*delta
         write(un_sys,*)'psiSurf     = ',psiSurf
-!        write(un_sys,*)'heightAB    = ',height
-        write(un_sys,*)'qpol        = ',qpol
-        
-        !write(un_sys,*)'avfdisA(1)  = ',avfdisA(1)
+        write(un_sys,*)'avheightpol = ',avheightpol
+        write(un_sys,*)'avqpol      = ',avqpol
         write(un_sys,*)'dielectW    = ',dielectW
         write(un_sys,*)'lb          = ',lb
-        write(un_sys,*)'T           = ',Temperature
-        
+        write(un_sys,*)'T           = ',Temperature        
         write(un_sys,*)'zNa         = ',zNa
         write(un_sys,*)'zCa         = ',zCa
         write(un_sys,*)'zK          = ',zK
         write(un_sys,*)'zCl         = ',zCl
         write(un_sys,*)'nsize       = ',nsize  
         write(un_sys,*)'cuantas     = ',cuantas
+        write(un_sys,*)'nseg        = ',nseg
+        write(un_sys,*)'nsegtypes   = ',nsegtypes
         write(un_sys,*)'iterations  = ',iter
-        write(un_sys,*)'chainmethod = ',chainmethod
-        write(un_sys,*)'chaintype   = ',chaintype
+        write(un_sys,*)'chainmethod = ',chainmethod 
         if(chainmethod.eq."FILE") then
             write(un_sys,*)'readinchains = ',readinchains
+            write(un_sys,*)'spacer  = ',spacer
         endif
         write(un_sys,*)'sysflag     = ',sysflag
         write(un_sys,*)'runflag     = ',runflag

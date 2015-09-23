@@ -15,8 +15,9 @@ module globals
     integer  :: nseg          ! length of polymer
     integer  :: nsegtypes     ! number of segment types 
     integer  :: cuantas       ! number of polymer configurations
+
     character(len=15) :: sysflag       ! sysflag selects fcn    
-    character(len=2) :: bcflag(2)      ! bcflag selects bc of surface
+    character(len=8) :: runflag         ! select type of run ="default" or "input" 
 
 end module globals
 

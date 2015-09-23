@@ -1,7 +1,7 @@
 #Unix makefile for fortran-file	
 
 # put the name of the target program here
-TARGET = brush.weak.sphere.mixture # the list of source files
+TARGET = brush.weak.sphere.dna # the list of source files
 SRC =    precision.f90 mathconst.f90 physconst.f90 globals.f90 molecule.f90 chains.f90 volume.f90 rands.f90 myutils.f90 parameter.f90  field.f90 fenergy.f90 initcha.f90  myio.f90 cadenas.f90 fcnDNA.f90  rota.sphere.f90  init.f90 chaingenerator.f90 kinsolsolver.f90  solver.f90 L2norm.f90 brush.weak.sphere.csrange.f90
 # fenergy.f90 after field.f90
 # some definitions

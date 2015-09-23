@@ -36,7 +36,7 @@ subroutine solver(x, xguess, accuracy, residual)
     if(method.eq."kinsol") then
      
         call kinsol_gmres_solver(x, xguess, neq, accuracy, residual)
-     
+    
      !  elseif (method.eq."zspow") then 
      !     call zspow_solver(x, xguess, neq, accuracy, residual)
      
